@@ -511,6 +511,11 @@
     downloadBtn.disabled = false;
   }
 
+  // Clicking the file name field selects all its text for quick replacing.
+  const filenameInput = document.getElementById('filename');
+  filenameInput.addEventListener('focus', () => filenameInput.select());
+  filenameInput.addEventListener('click', () => filenameInput.select());
+
   // Live preview: re-splice whenever any option changes.
   ['align', 'match', 'gap'].forEach(id => {
     document.getElementById(id).addEventListener('input', refresh);
