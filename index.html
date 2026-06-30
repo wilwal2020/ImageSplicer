@@ -332,7 +332,16 @@
 <script>
 (() => {
   const state = { left: null, right: null, active: 'left' };
-  const APP_TITLE = document.title;
+
+  // Register the service worker that lets right-click "Save image as" use the
+  // chosen file name. Fails silently on file:// (no SW) — Download still works.
+  let swReady = false;
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => { swReady = true; })
+      .catch(() => { swReady = false; });
+  }
 
   const slots = {
     left: document.getElementById('slotLeft'),
@@ -353,10 +362,27 @@
     return name;
   }
 
-  // Browsers fall back to the document title when naming a right-click
-  // "Save image as" on a data-URL image, so keep the title in sync.
-  function syncTitle() {
-    document.title = currentFilename();
+  // Point the preview <img> at a service-worker URL whose last path segment is
+  // the chosen file name, so right-click "Save image as" suggests that name.
+  // Falls back to a plain data URL when the service worker isn't available.
+  let saveCounter = 0;
+  function showResult() {
+    const name = currentFilename();
+    const dataURL = canvas.toDataURL('image/png');
+    const ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!swReady || !ctrl) {
+      resultImg.src = dataURL;
+      return;
+    }
+    canvas.toBlob((blob) => {
+      const url = new URL('saved/' + encodeURIComponent(name), location.href).href;
+      const channel = new MessageChannel();
+      channel.port1.onmessage = () => {
+        // Cache-bust so the <img> reloads even if the name is unchanged.
+        resultImg.src = url + '?v=' + (++saveCounter);
+      };
+      ctrl.postMessage({ type: 'store', url, name, blob }, [channel.port2]);
+    }, 'image/png');
   }
 
   function setActive(side) {
@@ -407,7 +433,6 @@
     } else {
       resultWrap.classList.add('hidden');
       downloadBtn.disabled = true;
-      document.title = APP_TITLE;
     }
   }
 
@@ -527,8 +552,7 @@
     ctx.drawImage(b, da.w + gap, yFor(db.h), db.w, db.h);
 
     // Show the result as a real <img> so right-click "Save image as" works.
-    resultImg.src = canvas.toDataURL('image/png');
-    syncTitle();
+    showResult();
     resultWrap.classList.remove('hidden');
     downloadBtn.disabled = false;
   }
@@ -537,7 +561,10 @@
   const filenameInput = document.getElementById('filename');
   filenameInput.addEventListener('focus', () => filenameInput.select());
   filenameInput.addEventListener('click', () => filenameInput.select());
-  filenameInput.addEventListener('input', syncTitle);
+  // Re-serve under the new name so right-click save reflects edits live.
+  filenameInput.addEventListener('input', () => {
+    if (state.left && state.right) showResult();
+  });
 
   // Live preview: re-splice whenever any option changes.
   ['align', 'match', 'gap'].forEach(id => {
