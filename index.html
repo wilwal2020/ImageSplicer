@@ -96,6 +96,19 @@
     margin-bottom: 6px;
   }
   .slot-placeholder .hint { font-size: .85rem; line-height: 1.5; }
+  .slot-browse {
+    margin-top: 14px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  .slot-browse:hover { background: var(--accent-2); }
   .slot-badge {
     position: absolute;
     top: 10px;
@@ -233,7 +246,8 @@
       <span class="slot-badge">Left</span>
       <div class="slot-placeholder">
         <div class="side">Left image</div>
-        <div class="hint">Click to select this side,<br>then paste (Ctrl/Cmd+V), drop, or click to browse</div>
+        <div class="hint">Click to select this side, then paste (Ctrl/Cmd+V)<br>or drop an image here</div>
+        <button class="slot-browse" data-side="left">📁 Open from folder</button>
       </div>
       <button class="slot-clear" title="Remove image" data-side="left">✕</button>
     </div>
@@ -246,7 +260,8 @@
       <span class="slot-badge">Right</span>
       <div class="slot-placeholder">
         <div class="side">Right image</div>
-        <div class="hint">Click to select this side,<br>then paste (Ctrl/Cmd+V), drop, or click to browse</div>
+        <div class="hint">Click to select this side, then paste (Ctrl/Cmd+V)<br>or drop an image here</div>
+        <button class="slot-browse" data-side="right">📁 Open from folder</button>
       </div>
       <button class="slot-clear" title="Remove image" data-side="right">✕</button>
     </div>
@@ -273,12 +288,11 @@
       <label for="gap">Gap (px)</label>
       <input type="number" id="gap" value="0" min="0" max="500">
     </div>
-    <button class="primary" id="spliceBtn" disabled>Splice images</button>
-    <button class="ghost" id="downloadBtn" disabled>Download PNG</button>
+    <button class="primary" id="downloadBtn" disabled>Download PNG</button>
   </div>
 
   <div class="result hidden" id="resultWrap">
-    <h2>Result</h2>
+    <h2>Live preview</h2>
     <canvas id="canvas"></canvas>
   </div>
 </main>
@@ -296,7 +310,6 @@
     right: document.getElementById('slotRight'),
   };
   const fileInput = document.getElementById('fileInput');
-  const spliceBtn = document.getElementById('spliceBtn');
   const downloadBtn = document.getElementById('downloadBtn');
   const swapBtn = document.getElementById('swapBtn');
   const canvas = document.getElementById('canvas');
@@ -314,7 +327,7 @@
     img.onload = () => {
       state[side] = img;
       renderSlot(side);
-      updateButtons();
+      refresh();
     };
     img.src = src;
   }
@@ -344,29 +357,41 @@
     }
   }
 
-  function updateButtons() {
-    const ready = state.left && state.right;
-    spliceBtn.disabled = !ready;
+  // Re-render the live preview whenever something changes.
+  function refresh() {
+    if (state.left && state.right) {
+      splice();
+    } else {
+      resultWrap.classList.add('hidden');
+      downloadBtn.disabled = true;
+    }
   }
 
   function clearSide(side) {
     state[side] = null;
     renderSlot(side);
-    updateButtons();
+    refresh();
   }
 
   // --- Slot interactions ---
   ['left', 'right'].forEach(side => {
     const slot = slots[side];
 
+    // Clicking a slot only selects it — it never opens the file dialog,
+    // so you can safely click then paste without a folder popping up.
     slot.addEventListener('click', e => {
-      if (e.target.classList.contains('slot-clear')) return;
+      if (e.target.closest('.slot-clear') || e.target.closest('.slot-browse')) return;
+      setActive(side);
+    });
+
+    slot.addEventListener('focus', () => setActive(side));
+
+    slot.querySelector('.slot-browse').addEventListener('click', e => {
+      e.stopPropagation();
       setActive(side);
       fileInput.dataset.side = side;
       fileInput.click();
     });
-
-    slot.addEventListener('focus', () => setActive(side));
 
     slot.addEventListener('dragover', e => {
       e.preventDefault();
@@ -414,10 +439,7 @@
     [state.left, state.right] = [state.right, state.left];
     renderSlot('left');
     renderSlot('right');
-    updateButtons();
-    if (!resultWrap.classList.contains('hidden') && state.left && state.right) {
-      splice();
-    }
+    refresh();
   });
 
   // --- Splice ---
@@ -461,7 +483,10 @@
     downloadBtn.disabled = false;
   }
 
-  spliceBtn.addEventListener('click', splice);
+  // Live preview: re-splice whenever any option changes.
+  ['align', 'match', 'gap'].forEach(id => {
+    document.getElementById(id).addEventListener('input', refresh);
+  });
 
   downloadBtn.addEventListener('click', () => {
     const link = document.createElement('a');

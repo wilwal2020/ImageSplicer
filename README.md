@@ -4,8 +4,9 @@ A tiny, dependency-free web app that splices two images together side by side �
 
 ## Features
 
-- **Two slots, your choice of side** — click the left or right square to select it, then add an image to that side.
-- **Three ways to add an image** — paste from the clipboard (Ctrl/Cmd+V), drag & drop, or click to browse.
+- **Two slots, your choice of side** — click the left or right square to select it (clicking never opens a dialog), then add an image to that side.
+- **Three ways to add an image** — paste from the clipboard (Ctrl/Cmd+V), drag & drop, or use the dedicated **Open from folder** button on each slot.
+- **Live preview** — the spliced result updates automatically as you add images or change options; no button to press.
 - **Swap button** — flip the left and right images with one click.
 - **Splicing options** — match heights (tallest / shortest / keep original), vertical alignment (top / center / bottom), and an adjustable gap between the images.
 - **Download** the result as a PNG.
