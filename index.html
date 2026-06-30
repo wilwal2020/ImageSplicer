@@ -234,12 +234,13 @@
     text-align: right;
   }
   .name-row .ext { color: var(--muted); }
-  .result canvas {
+  .result canvas, .result img {
     max-width: 100%;
     border-radius: 12px;
     border: 1px solid var(--border);
     background: #fff;
   }
+  .save-hint { color: var(--muted); font-size: .8rem; margin-top: 12px; }
   .hidden { display: none; }
   footer {
     text-align: center;
@@ -318,7 +319,9 @@
       <input type="text" id="filename" value="spliced" placeholder="spliced">
       <span class="ext">.png</span>
     </div>
-    <canvas id="canvas"></canvas>
+    <canvas id="canvas" class="hidden"></canvas>
+    <img id="resultImg" alt="Spliced image — right-click to save">
+    <p class="save-hint">Tip: click <b>Download PNG</b>, or right-click the image → “Save image as”. Both use the name above.</p>
   </div>
 </main>
 
@@ -329,6 +332,7 @@
 <script>
 (() => {
   const state = { left: null, right: null, active: 'left' };
+  const APP_TITLE = document.title;
 
   const slots = {
     left: document.getElementById('slotLeft'),
@@ -338,8 +342,22 @@
   const downloadBtn = document.getElementById('downloadBtn');
   const swapBtn = document.getElementById('swapBtn');
   const canvas = document.getElementById('canvas');
+  const resultImg = document.getElementById('resultImg');
   const resultWrap = document.getElementById('resultWrap');
   const ctx = canvas.getContext('2d');
+
+  // The chosen file name with a .png extension guaranteed.
+  function currentFilename() {
+    let name = document.getElementById('filename').value.trim() || 'spliced';
+    if (!/\.png$/i.test(name)) name += '.png';
+    return name;
+  }
+
+  // Browsers fall back to the document title when naming a right-click
+  // "Save image as" on a data-URL image, so keep the title in sync.
+  function syncTitle() {
+    document.title = currentFilename();
+  }
 
   function setActive(side) {
     state.active = side;
@@ -389,6 +407,7 @@
     } else {
       resultWrap.classList.add('hidden');
       downloadBtn.disabled = true;
+      document.title = APP_TITLE;
     }
   }
 
@@ -507,6 +526,9 @@
     ctx.drawImage(a, 0, yFor(da.h), da.w, da.h);
     ctx.drawImage(b, da.w + gap, yFor(db.h), db.w, db.h);
 
+    // Show the result as a real <img> so right-click "Save image as" works.
+    resultImg.src = canvas.toDataURL('image/png');
+    syncTitle();
     resultWrap.classList.remove('hidden');
     downloadBtn.disabled = false;
   }
@@ -515,6 +537,7 @@
   const filenameInput = document.getElementById('filename');
   filenameInput.addEventListener('focus', () => filenameInput.select());
   filenameInput.addEventListener('click', () => filenameInput.select());
+  filenameInput.addEventListener('input', syncTitle);
 
   // Live preview: re-splice whenever any option changes.
   ['align', 'match', 'gap'].forEach(id => {
@@ -522,10 +545,8 @@
   });
 
   downloadBtn.addEventListener('click', () => {
-    let name = document.getElementById('filename').value.trim() || 'spliced';
-    if (!/\.png$/i.test(name)) name += '.png';
     const link = document.createElement('a');
-    link.download = name;
+    link.download = currentFilename();
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
