@@ -214,6 +214,26 @@
     text-align: center;
   }
   .result h2 { font-size: 1.1rem; color: var(--muted); font-weight: 500; }
+  .name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+  .name-row input {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: .95rem;
+    min-width: 200px;
+    text-align: right;
+  }
+  .name-row .ext { color: var(--muted); }
   .result canvas {
     max-width: 100%;
     border-radius: 12px;
@@ -293,6 +313,11 @@
 
   <div class="result hidden" id="resultWrap">
     <h2>Live preview</h2>
+    <div class="name-row">
+      <label for="filename">File name</label>
+      <input type="text" id="filename" value="spliced" placeholder="spliced">
+      <span class="ext">.png</span>
+    </div>
     <canvas id="canvas"></canvas>
   </div>
 </main>
@@ -427,7 +452,10 @@
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
-        loadFile(file, state.active);
+        const target = state.active;
+        loadFile(file, target);
+        // Auto-advance to the other slot so the next paste lands there.
+        setActive(target === 'left' ? 'right' : 'left');
         e.preventDefault();
         break;
       }
@@ -489,8 +517,10 @@
   });
 
   downloadBtn.addEventListener('click', () => {
+    let name = document.getElementById('filename').value.trim() || 'spliced';
+    if (!/\.png$/i.test(name)) name += '.png';
     const link = document.createElement('a');
-    link.download = 'spliced.png';
+    link.download = name;
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
