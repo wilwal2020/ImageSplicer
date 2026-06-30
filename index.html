@@ -321,7 +321,7 @@
     </div>
     <canvas id="canvas" class="hidden"></canvas>
     <img id="resultImg" alt="Spliced image — right-click to save">
-    <p class="save-hint">Tip: click <b>Download PNG</b>, or right-click the image → “Save image as”. Both use the name above.</p>
+    <p class="save-hint">Click <b>Download PNG</b> to save with the name above. (Right-click → “Save image as” also works, but the browser picks a generic name.)</p>
   </div>
 </main>
 
@@ -333,14 +333,12 @@
 (() => {
   const state = { left: null, right: null, active: 'left' };
 
-  // Register the service worker that lets right-click "Save image as" use the
-  // chosen file name. Fails silently on file:// (no SW) — Download still works.
-  let swReady = false;
+  // Clean up the old service worker from a previous version: context-menu
+  // downloads bypass it, so it caused right-click saves to grab the 404 page.
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js')
-      .then(() => navigator.serviceWorker.ready)
-      .then(() => { swReady = true; })
-      .catch(() => { swReady = false; });
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => rs.forEach(r => r.unregister()))
+      .catch(() => {});
   }
 
   const slots = {
@@ -362,26 +360,16 @@
     return name;
   }
 
-  // Point the preview <img> at a service-worker URL whose last path segment is
-  // the chosen file name, so right-click "Save image as" suggests that name.
-  // Falls back to a plain data URL when the service worker isn't available.
-  let saveCounter = 0;
+  // Show the result as a real <img> backed by a blob URL, so right-click
+  // "Save image as" reliably saves a proper PNG. (The exact file name comes
+  // from the Download PNG button — browsers can't name a context-menu save of
+  // a generated image.)
+  let lastBlobURL = null;
   function showResult() {
-    const name = currentFilename();
-    const dataURL = canvas.toDataURL('image/png');
-    const ctrl = navigator.serviceWorker && navigator.serviceWorker.controller;
-    if (!swReady || !ctrl) {
-      resultImg.src = dataURL;
-      return;
-    }
     canvas.toBlob((blob) => {
-      const url = new URL('saved/' + encodeURIComponent(name), location.href).href;
-      const channel = new MessageChannel();
-      channel.port1.onmessage = () => {
-        // Cache-bust so the <img> reloads even if the name is unchanged.
-        resultImg.src = url + '?v=' + (++saveCounter);
-      };
-      ctrl.postMessage({ type: 'store', url, name, blob }, [channel.port2]);
+      if (lastBlobURL) URL.revokeObjectURL(lastBlobURL);
+      lastBlobURL = URL.createObjectURL(blob);
+      resultImg.src = lastBlobURL;
     }, 'image/png');
   }
 
@@ -561,10 +549,6 @@
   const filenameInput = document.getElementById('filename');
   filenameInput.addEventListener('focus', () => filenameInput.select());
   filenameInput.addEventListener('click', () => filenameInput.select());
-  // Re-serve under the new name so right-click save reflects edits live.
-  filenameInput.addEventListener('input', () => {
-    if (state.left && state.right) showResult();
-  });
 
   // Live preview: re-splice whenever any option changes.
   ['align', 'match', 'gap'].forEach(id => {
