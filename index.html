@@ -264,7 +264,7 @@
 
 <main>
   <div class="slots">
-    <div class="slot active" id="slotLeft" data-side="left" tabindex="0">
+    <div class="slot" id="slotLeft" data-side="left" tabindex="0">
       <span class="slot-badge">Left</span>
       <div class="slot-placeholder">
         <div class="side">Left image</div>
@@ -278,7 +278,7 @@
       <button class="swap-btn" id="swapBtn" title="Swap images">⇄</button>
     </div>
 
-    <div class="slot" id="slotRight" data-side="right" tabindex="0">
+    <div class="slot active" id="slotRight" data-side="right" tabindex="0">
       <span class="slot-badge">Right</span>
       <div class="slot-placeholder">
         <div class="side">Right image</div>
@@ -332,7 +332,7 @@
 
 <script>
 (() => {
-  const state = { left: null, right: null, active: 'left' };
+  const state = { left: null, right: null, active: 'right' };
 
   // Clean up the old service worker from a previous version: context-menu
   // downloads bypass it, so it caused right-click saves to grab the 404 page.
